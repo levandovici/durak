@@ -1,27 +1,45 @@
-# Prevent directory listing
+# Предотвращение просмотра списка файлов в директориях
 Options -Indexes
 
-# Protect .env file
+# Защита файла .env от прямого доступа
 <Files ".env">
     Order Allow,Deny
     Deny from all
 </Files>
 
-# Restrict access to PHP files except endpoints
+# Ограничение доступа ко всем PHP-файлам по умолчанию
 <FilesMatch "\.(php)$">
     Order Deny,Allow
     Deny from all
 </FilesMatch>
 
-<FilesMatch "(join_game|get_game_state|play_card)\.php$">
+# Разрешение доступа только к указанным PHP-файлам
+<FilesMatch "(index|join_game|get_game_state|play_card|init_game)\.php$">
     Order Allow,Deny
     Allow from all
 </FilesMatch>
 
-# Force HTTPS
+# Принудительное использование HTTPS
 RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Prevent access to Composer files
+# Предотвращение доступа к папке vendor (Composer)
 RedirectMatch 403 ^/vendor/.*$
+
+# Разрешение доступа к папке cards для загрузки изображений
+<Directory "cards">
+    Order Allow,Deny
+    Allow from all
+</Directory>
+
+# Защита от прямого доступа к другим конфиденциальным файлам (например, .htaccess)
+<Files ".ht*">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Оптимизация кэширования для статических ресурсов (карты)
+<FilesMatch "\.(png|jpg|jpeg|gif|css|js)$">
+    Header set Cache-Control "public, max-age=604800"
+</FilesMatch>
