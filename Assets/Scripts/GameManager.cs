@@ -12,11 +12,19 @@ public class GameManager : MonoBehaviour
     private List<Player> players = new List<Player>();
     private string trumpSuit;
     private List<Card> table = new List<Card>();
-    private bool multiplayer = false;
+
+    // Константа для базового URL сервера
+    [SerializeField]
+    private string _base_Url = "https://yourdomain.com";
+
+    [SerializeField]
+    private bool _multiplayer = false;
+
+
 
     void Start()
     {
-        if (multiplayer)
+        if (_multiplayer)
         {
             StartMultiplayer("Player");
         }
@@ -56,7 +64,7 @@ public class GameManager : MonoBehaviour
     {
         WWWForm form = new WWWForm();
         form.AddField("username", username);
-        using (UnityWebRequest www = UnityWebRequest.Post("https://cloud.limonadoent.com/durak/join_game.php", form))
+        using (UnityWebRequest www = UnityWebRequest.Post(_base_Url + "/join_game.php", form))
         {
             yield return www.SendWebRequest();
             if (www.result == UnityWebRequest.Result.Success)
@@ -65,7 +73,7 @@ public class GameManager : MonoBehaviour
                 gameId = response.game_id;
                 playerId = response.player_id;
                 sessionId = response.session_id;
-                deck.GenerateDeck();
+                deck.GenerateDeck(); // Для локального отображения карт
                 StartCoroutine(PollGameState());
             }
             else
@@ -83,7 +91,7 @@ public class GameManager : MonoBehaviour
             form.AddField("game_id", gameId);
             form.AddField("player_id", playerId);
             form.AddField("session_id", sessionId);
-            using (UnityWebRequest www = UnityWebRequest.Post("https://cloud.limonadoent.com/durak/get_game_state.php", form))
+            using (UnityWebRequest www = UnityWebRequest.Post(_base_Url + "/get_game_state.php", form))
             {
                 yield return www.SendWebRequest();
                 if (www.result == UnityWebRequest.Result.Success)
@@ -103,28 +111,20 @@ public class GameManager : MonoBehaviour
         trumpSuit = state.trump_suit;
         foreach (var p in state.players)
         {
-            Player player = new Player(p.player_id, "Player" + p.player_id);
-            players.Add(player);
-            if (p.player_id == playerId)
-            {
-                for (int i = 0; i < 6; i++)
-                    player.AddCard(deck.DrawCard());
-            }
+            players.Add(new Player(p.player_id, "Player" + p.player_id));
         }
-        StartCoroutine(SyncInitialState());
-    }
-
-    IEnumerator SyncInitialState()
-    {
-        Player localPlayer = players.Find(p => p.Id == playerId);
-        WWWForm form = new WWWForm();
-        form.AddField("game_id", gameId);
-        form.AddField("player_id", playerId);
-        form.AddField("session_id", sessionId);
-        form.AddField("card", JsonUtility.ToJson(new CardList { cards = localPlayer.Hand.ConvertAll(c => new CardData { suit = c.Suit, rank = c.Rank }) }));
-        using (UnityWebRequest www = UnityWebRequest.Post("https://cloud.limonadoent.com/durak/play_card.php", form))
+        foreach (var s in state.state)
         {
-            yield return www.SendWebRequest();
+            var player = players.Find(p => p.Id == s.player_id);
+            if (player != null)
+            {
+                var hand = JsonUtility.FromJson<CardList>(s.hand);
+                foreach (var cardData in hand.cards)
+                {
+                    Card card = deck.Cards.Find(c => c.Suit == cardData.suit && c.Rank == cardData.rank);
+                    if (card != null) player.AddCard(card);
+                }
+            }
         }
     }
 
@@ -172,7 +172,7 @@ public class GameManager : MonoBehaviour
         form.AddField("player_id", playerId);
         form.AddField("session_id", sessionId);
         form.AddField("card", JsonUtility.ToJson(new CardData { suit = card.Suit, rank = card.Rank }));
-        using (UnityWebRequest www = UnityWebRequest.Post("https://cloud.limonadoent.com/durak/play_card.php", form))
+        using (UnityWebRequest www = UnityWebRequest.Post(_base_Url + "/play_card.php", form))
         {
             yield return www.SendWebRequest();
             if (www.result == UnityWebRequest.Result.Success)
@@ -181,6 +181,7 @@ public class GameManager : MonoBehaviour
                 if (response.success)
                 {
                     players.Find(p => p.Id == playerId).Hand.Remove(card);
+                    table.Add(card);
                     Debug.Log(response.redirected ? "Card redirected!" : "Card played!");
                 }
                 else
@@ -206,10 +207,10 @@ public class GameManager : MonoBehaviour
                 if (s.player_id != playerId)
                 {
                     var tableCards = JsonUtility.FromJson<CardList>(s.table);
-                    table = new List<Card>(); // Reset table
+                    table = new List<Card>();
                     foreach (var c in tableCards.cards)
                     {
-                        Card card = deck.Cards.Find(card => card.Suit == c.suit && card.Rank == c.rank);
+                        Card card = deck.Cards.Find(card => card.Suit == c.suit && c.rank == card.Rank);
                         if (card != null) table.Add(card);
                     }
                 }
