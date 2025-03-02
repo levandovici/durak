@@ -43,11 +43,25 @@ $stmt->execute([$game_id, $player_id]);
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM game_players WHERE game_id = ?");
 $stmt->execute([$game_id]);
 $num_players = $stmt->fetchColumn();
-if ($num_players >= 2 && $num_players <= 6) { // Start with 2+ players
+if ($num_players >= 2 && $num_players <= 6) {
     $stmt = $pdo->prepare("UPDATE games SET status = 'active' WHERE id = ?");
     $stmt->execute([$game_id]);
     $stmt = $pdo->prepare("UPDATE game_state SET is_turn = 1 WHERE game_id = ? AND player_id = (SELECT player_id FROM game_players WHERE game_id = ? AND turn_order = 1)");
     $stmt->execute([$game_id, $game_id]);
+
+    // Вызов init_game.php для раздачи карт
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $_ENV['APP_URL'] . '/init_game.php');
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query(['game_id' => $game_id]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $init_response = json_decode($response, true);
+    if (!$init_response['success']) {
+        echo json_encode(['error' => 'Failed to initialize game']);
+        exit;
+    }
 }
 
 echo json_encode(['game_id' => $game_id, 'player_id' => $player_id, 'session_id' => $session_id]);
