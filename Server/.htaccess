@@ -1,26 +1,24 @@
-# .htaccess
 # Prevent directory listing
 Options -Indexes
 
-# Protect .env file from being accessed
+# Protect .env file
 <Files ".env">
     Order Allow,Deny
     Deny from all
 </Files>
 
-# Restrict access to PHP files in sensitive directories (if you add any)
+# Restrict access to PHP files except endpoints
 <FilesMatch "\.(php)$">
     Order Deny,Allow
     Deny from all
 </FilesMatch>
 
-# Allow access to specific PHP endpoints
 <FilesMatch "(join_game|get_game_state|play_card)\.php$">
     Order Allow,Deny
     Allow from all
 </FilesMatch>
 
-# Force HTTPS (if SSL is enabled on Hostinger)
+# Force HTTPS
 RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

@@ -6,7 +6,6 @@ $game_id = $_POST['game_id'] ?? 0;
 $player_id = $_POST['player_id'] ?? 0;
 $session_id = $_POST['session_id'] ?? '';
 
-// Validate session
 $stmt = $pdo->prepare("SELECT session_id FROM players WHERE id = ?");
 $stmt->execute([$player_id]);
 if ($stmt->fetchColumn() !== $session_id) {
@@ -19,7 +18,6 @@ if (!$game_id || !$player_id) {
     exit;
 }
 
-// Get game info
 $stmt = $pdo->prepare("SELECT * FROM games WHERE id = ?");
 $stmt->execute([$game_id]);
 $game = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -29,15 +27,18 @@ if (!$game) {
     exit;
 }
 
-// Get player hands and table
-$stmt = $pdo->prepare("SELECT player_id, hand, table, is_turn FROM game_state WHERE game_id = ?");
+$stmt = $pdo->prepare("SELECT player_id, hand, `table`, is_turn FROM game_state WHERE game_id = ?");
 $stmt->execute([$game_id]);
 $state = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$stmt = $pdo->prepare("SELECT player_id, turn_order FROM game_players WHERE game_id = ? ORDER BY turn_order");
+$stmt->execute([$game_id]);
+$players = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo json_encode([
     'status' => $game['status'],
     'trump_suit' => $game['trump_suit'],
-    'players' => [$game['player1_id'], $game['player2_id']],
+    'players' => $players,
     'state' => $state
 ]);
 ?>

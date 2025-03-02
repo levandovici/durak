@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php'; // Include Composer's autoloader
+require_once __DIR__ . '/vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
