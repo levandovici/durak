@@ -13,14 +13,16 @@ public class GameManager : MonoBehaviour
     private string trumpSuit;
     private List<Card> table = new List<Card>();
 
-    // Константа для базового URL сервера
     [SerializeField]
-    private string _base_Url = "https://yourdomain.com";
+    private string _base_url = "https://yourdomain.com";
 
     [SerializeField]
     private bool _multiplayer = false;
 
+    [SerializeField] private UIManager uiManager;
 
+    public int PlayerId => playerId;
+    public bool IsSinglePlayer => isSinglePlayer;
 
     void Start()
     {
@@ -64,7 +66,7 @@ public class GameManager : MonoBehaviour
     {
         WWWForm form = new WWWForm();
         form.AddField("username", username);
-        using (UnityWebRequest www = UnityWebRequest.Post(_base_Url + "/join_game.php", form))
+        using (UnityWebRequest www = UnityWebRequest.Post(_base_url + "/join_game.php", form))
         {
             yield return www.SendWebRequest();
             if (www.result == UnityWebRequest.Result.Success)
@@ -73,7 +75,7 @@ public class GameManager : MonoBehaviour
                 gameId = response.game_id;
                 playerId = response.player_id;
                 sessionId = response.session_id;
-                deck.GenerateDeck(); // Для локального отображения карт
+                deck.GenerateDeck();
                 StartCoroutine(PollGameState());
             }
             else
@@ -91,7 +93,7 @@ public class GameManager : MonoBehaviour
             form.AddField("game_id", gameId);
             form.AddField("player_id", playerId);
             form.AddField("session_id", sessionId);
-            using (UnityWebRequest www = UnityWebRequest.Post(_base_Url + "/get_game_state.php", form))
+            using (UnityWebRequest www = UnityWebRequest.Post(_base_url + "/get_game_state.php", form))
             {
                 yield return www.SendWebRequest();
                 if (www.result == UnityWebRequest.Result.Success)
@@ -126,6 +128,7 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+        UpdateUI();
     }
 
     public void PlayCard(Card card)
@@ -172,7 +175,7 @@ public class GameManager : MonoBehaviour
         form.AddField("player_id", playerId);
         form.AddField("session_id", sessionId);
         form.AddField("card", JsonUtility.ToJson(new CardData { suit = card.Suit, rank = card.Rank }));
-        using (UnityWebRequest www = UnityWebRequest.Post(_base_Url + "/play_card.php", form))
+        using (UnityWebRequest www = UnityWebRequest.Post(_base_url + "/play_card.php", form))
         {
             yield return www.SendWebRequest();
             if (www.result == UnityWebRequest.Result.Success)
@@ -194,6 +197,7 @@ public class GameManager : MonoBehaviour
                 Debug.LogError("Play failed: " + www.error);
             }
         }
+        UpdateUI();
     }
 
     void UpdateMultiplayer(GameStateResponse state)
@@ -210,7 +214,7 @@ public class GameManager : MonoBehaviour
                     table = new List<Card>();
                     foreach (var c in tableCards.cards)
                     {
-                        Card card = deck.Cards.Find(card => card.Suit == c.suit && c.rank == card.Rank);
+                        Card card = deck.Cards.Find(card => card.Suit == c.suit && card.Rank == c.rank);
                         if (card != null) table.Add(card);
                     }
                 }
@@ -221,8 +225,7 @@ public class GameManager : MonoBehaviour
 
     void UpdateUI()
     {
-        Debug.Log("UI Update: Player " + (players.Find(p => p.IsTurn)?.Id ?? 0) + "'s turn");
-        // Implement UI: Show player's hand, table cards, and turn indicator
+        uiManager.SetupUI(players, table, trumpSuit, players.Find(p => p.IsTurn)?.Id ?? 0);
     }
 }
 
